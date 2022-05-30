@@ -5,3 +5,4 @@ generated.*.ld
 libopencm3
 *.so
 *.o
+workspace.code-workspace
