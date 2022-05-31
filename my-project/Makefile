@@ -1,10 +1,10 @@
-PROJECT = awesomesauce
+PROJECT = led_test
 BUILD_DIR = bin
 
 SHARED_DIR = ../my-common-code
-CFILES = my-project.c
-CFILES += api.c
-AFILES += api-asm.S
+CFILES = $(shell ls *.c)
+CFILES +=
+AFILES +=
 
 # TODO - you will need to edit these two lines!
 DEVICE=stm32f407vgt6
