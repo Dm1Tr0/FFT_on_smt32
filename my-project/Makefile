@@ -1,5 +1,6 @@
 PROJECT = timer_test
 BUILD_DIR = bin
+WRITE_ADDR = 0x8000000
 
 SHARED_DIR = ../my-common-code
 CFILES = $(shell ls *.c)

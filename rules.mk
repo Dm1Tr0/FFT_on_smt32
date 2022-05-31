@@ -170,9 +170,19 @@ else
 		$(NULL)
 endif
 
+st_flash: all
+	sudo st-flash --reset write $(PROJECT).bin $(WRITE_ADDR)
+
+flash_erase:
+	sudo st-flash erase 
+
+
 clean:
 	rm -rf $(BUILD_DIR) $(GENERATED_BINS)
 
-.PHONY: all clean flash
+mr_proper: 
+	rm -rf  $(PROJECT).bin $(PROJECT).elf
+
+.PHONY: all clean flash st_flash flash_erase
 -include $(OBJS:.o=.d)
 
