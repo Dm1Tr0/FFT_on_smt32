@@ -1,4 +1,4 @@
-PROJECT = led_test
+PROJECT = timer_test
 BUILD_DIR = bin
 
 SHARED_DIR = ../my-common-code

@@ -74,10 +74,10 @@ void tim_setup(uint16_t t_val)
 	timer_continuous_mode(TIM2);
 
 	/* count full range, as we'll update compare value continuously */
-	timer_set_period(TIM2, 65535);
+	timer_set_period(TIM2, t_val);
 
 	/* Set the initual output compare value for OC1. */
-	timer_set_oc_value(TIM2, TIM_OC1, t_val);
+	//timer_set_oc_value(TIM2, TIM_OC1, t_val);
 
 	/* Counter enable. */
 	timer_enable_counter(TIM2);
@@ -92,7 +92,7 @@ int tim_init_handler(struct tim_cb_str *data)
 		tim_cb_str_p = data;
 	} else {
 		DBG_PRINT("the initializiation failed, too long data \n");
-		DBG_LED(1);
+		DBG_LED(0x5);
 		return E_GER;
 	}
 
@@ -127,7 +127,7 @@ void tim2_isr(void)
 			tim_cb_str_p->tim_cb(&tim_cb_str_p->cb_data);
 		} else {
 			DBG_PRINT("the callback struct is not initialized; the timer is stoped\n");
-			DBG_LED(2);
+			DBG_LED(6);
 			timer_disable_counter(TIM2);
 		}
 	}
