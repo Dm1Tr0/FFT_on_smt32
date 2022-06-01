@@ -26,12 +26,6 @@
 #include <general_defs.h>
 #include <usb_hdr.h>
 
-#ifndef DBG_LVL
-
-#define DBG_PRINT(str, ... )
-
-#endif
-
 static struct usb_cb_str *usb_cb_str_p;
 
 static usbd_device *usbd_dev; 
@@ -293,9 +287,4 @@ void usbd_singl_poll(void)
 	if (usbd_dev != NULL) {
 		usbd_poll(usbd_dev);
 	}
-}
-
-int main(void)
-{
-	return 0;
 }

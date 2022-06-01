@@ -25,13 +25,6 @@
 #include <stdlib.h>
 #include <tim_hdr.h>
 
-#ifndef DBG_LVL
-
-#define DBG_PRINT(val)
-#define DBG_LED(val)
-
-#endif /* DBG_LVL */
-
 static struct tim_cb_str *tim_cb_str_p;
 
 void tim_clock_setup(void)

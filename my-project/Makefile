@@ -1,9 +1,9 @@
-PROJECT = cdcacm
+PROJECT = usb_check
 BUILD_DIR = bin
 WRITE_ADDR = 0x8000000
 
 SHARED_DIR = ../my-common-code
-CFILES = ./*.c
+CFILES = cdcacm.c led_lib.c timer.c my-project.c
 CFILES += 
 AFILES +=
 
