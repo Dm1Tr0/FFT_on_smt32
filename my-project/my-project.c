@@ -4,14 +4,18 @@
 #include <string.h>
 
 #define USB_DATA_BUF_LEN 100
-char data_buffer[USB_DATA_BUF_LEN];
-
 #define MIN_AMNT_OF_SAMPL 128
+#define MAX_AMNT_OF_SAMPL 1000
+
+char data_buffer[USB_DATA_BUF_LEN];
+char samples[MAX_AMNT_OF_SAMPL];
+uint32_t samples_amnt;
 
 enum comands {    //        EXAMPLES
-	START = '1',  //  START  n (where n amount of samples to read) no value instead of n means untill stop 
-	READ  = '2',   //  READ   read the aray of samples
-	STOP  = '3'   //  STOP   stop sampling
+	START    = '1',  //  START  n (where n amount of samples to read) no value instead of n means untill stop 
+	READ_TD  = '2',   //  READ   read the aray of samples
+	READ_DFT = '3',   //  STOP   stop sampling
+	READ_FFT = '4' 
 };
 
 uint32_t request_handler(char *buff, int32_t len)
@@ -22,30 +26,34 @@ uint32_t request_handler(char *buff, int32_t len)
 	leds_write(6);
 
 	if(len > 0 && buff != NULL) {
-		switch (buff[0])
-		{
+		switch (buff[0]) {
 		case START:
 			if (buff[1] == ' ') {
-				leds_write(3);
 				int32_t parsed_value = 0; 
-				ptr = buff + 2;
+				ptr = buff + 2; // pointer to second argument
 				parsed_value = atoi(ptr);
 				if (parsed_value > 0) { //dont forget to implement MIN_AMNT_OF_SAMPLS
 					leds_write(parsed_value);
+					samples_amnt = parsed_value;
+					samples[0] = *ptr;
+
 				} else {
 					DBG_PRINT(" %s the parsed amount of samples is invalid \n" __func__);
-					leds_write(4);
 					err = E_GER;
 					break;
 				}
 			} else {
 				DBG_PRINT(" %s unable to parse the comand that seems to look like start \n" __func__);
-				leds_write(5);
 				err = E_GER;
 				break;
 			}
 			break;
-		
+
+		case READ_TD:
+			usb_write_data_packet(samples, 1); // dont forget to set the amnt of symbols to wr
+			memset(samples, 0, MAX_AMNT_OF_SAMPL);
+			break;
+			
 		default:
 			DBG_PRINT(" %s unsuported command \n" __func__);
 			break;
