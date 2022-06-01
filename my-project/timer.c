@@ -22,7 +22,7 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/timer.h>
-#include <general_defs.h>
+#include <stdlib.h>
 #include <tim_hdr.h>
 
 #ifndef DBG_LVL

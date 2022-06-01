@@ -1,3 +1,6 @@
+#include <stdint.h>
+#include <general_defs.h>
+
 
 #ifndef TIM_HDR
 #define TIM_HDR

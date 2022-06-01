@@ -3,8 +3,8 @@ BUILD_DIR = bin
 WRITE_ADDR = 0x8000000
 
 SHARED_DIR = ../my-common-code
-CFILES = $(PROJECT).c
-CFILES += led_lib.c
+CFILES = ./*.c
+CFILES += 
 AFILES +=
 
 # TODO - you will need to edit these two lines!
