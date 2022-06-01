@@ -6,21 +6,55 @@
 #define USB_DATA_BUF_LEN 100
 char data_buffer[USB_DATA_BUF_LEN];
 
+#define MIN_AMNT_OF_SAMPL 128
+
 enum comands {    //        EXAMPLES
 	START = '1',  //  START  n (where n amount of samples to read) no value instead of n means untill stop 
-	STOP  = '2',  //  STOP   stop sampling
-	READ  = '3'   //  READ   read the aray of samples
+	READ  = '2',   //  READ   read the aray of samples
+	STOP  = '3'   //  STOP   stop sampling
 };
 
 uint32_t request_handler(char *buff, int32_t len)
 {
-	if(len && buff != NULL) {
+	char *ptr = NULL;
+	uint32_t err = E_OK;
 
+	leds_write(6);
+
+	if(len > 0 && buff != NULL) {
+		switch (buff[0])
+		{
+		case START:
+			if (buff[1] == ' ') {
+				leds_write(3);
+				int32_t parsed_value = 0; 
+				ptr = buff + 2;
+				parsed_value = atoi(ptr);
+				if (parsed_value > 0) { //dont forget to implement MIN_AMNT_OF_SAMPLS
+					leds_write(parsed_value);
+				} else {
+					DBG_PRINT(" %s the parsed amount of samples is invalid \n" __func__);
+					leds_write(4);
+					err = E_GER;
+					break;
+				}
+			} else {
+				DBG_PRINT(" %s unable to parse the comand that seems to look like start \n" __func__);
+				leds_write(5);
+				err = E_GER;
+				break;
+			}
+			break;
+		
+		default:
+			DBG_PRINT(" %s unsuported command \n" __func__);
+			break;
+		}
 	} else {
 		DBG_PRINT("unable to handle the usb reques the buf = NULL or lenth is invalid");
 	}
 	
-	return E_OK;
+	return err;
 }
 
 static void usb_data_cb(struct usb_cb_data * cb_data)
@@ -29,9 +63,10 @@ static void usb_data_cb(struct usb_cb_data * cb_data)
 	(void) cb_data; // no extra data needed
 
 	r_len = usb_read_data_packet(data_buffer, USB_DATA_BUF_LEN);
-	leds_write(r_len);
 
-	usb_write_data_packet(data_buffer,r_len);
+	request_handler(data_buffer, r_len);
+
+	memset(data_buffer, 0, r_len);
 }
 
 int main(void)
