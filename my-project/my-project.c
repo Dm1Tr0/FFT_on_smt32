@@ -2,6 +2,7 @@
 #include <tim_hdr.h>
 #include <usb_hdr.h>
 #include <string.h>
+#include <general_defs.h>
 
 #define USB_DATA_BUF_LEN 100
 #define MIN_AMNT_OF_SAMPL 128
@@ -91,6 +92,7 @@ int main(void)
 	leds_write(2);
 	
 	while (1) {
+	    printf("oh kurva 0_0 \n");
 		usbd_singl_poll();
 	}
 

@@ -31,8 +31,51 @@
 # C++ hasn't been actually tested with this..... sorry bout that. ;)
 # Second expansion/secondary not set, add this if you need them.
 
-BUILD_DIR ?= bin
+PROJECT = adc_default
+WRITE_ADDR = 0x8000000
+
+PROFILE ?= debug
+SRC_DIR ?= ./my-project
+PROFILE_DIR ?= $(SRC_DIR)/$(PROFILE)
+BUILD_DIR = $(SRC_DIR)/$(PROFILE)/bin
+
+SHARED_DIR = ./my-common-code
+CFILES =  cdcacm.c my-project.c led_lib.c timer.c
+CFILES += 
+AFILES +=
+
+LIBS += -lm
+
+ifeq ($(PROFILE),debug)
+
+ENABLE_SEMIHOSTING ?= 1
+
+ifeq ($(ENABLE_SEMIHOSTING),1)
+S_LDFLAGS   += --specs=rdimon.specs -lrdimon
+S_DEFS		+= -DENABLE_SEMIHOSTING=1 
+else 
+S_LDFLAGS += -lnosys
+endif
+
+endif
+
+# TODO - you will need to edit these two lines!
+DEVICE=stm32f407vgt6
+OOCD_FILE = discovery_conf.cfg
+
+# You shouldn't have to edit anything below here.
+VPATH += $(SHARED_DIR)
+INCLUDES += $(patsubst %,-I%, . $(SHARED_DIR))
+OPENCM3_DIR= ./libopencm3
+
+include $(OPENCM3_DIR)/mk/genlink-config.mk
+
+ifeq ($(PROFILE),debug)
+OPT ?= -Og 
+else 
 OPT ?= -Os
+endif 
+
 CSTD ?= -std=c99
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
@@ -62,6 +105,10 @@ OBJS += $(CXXFILES:%.cxx=$(BUILD_DIR)/%.o)
 OBJS += $(AFILES:%.S=$(BUILD_DIR)/%.o)
 GENERATED_BINS = $(PROJECT).elf $(PROJECT).bin $(PROJECT).map $(PROJECT).list $(PROJECT).lss
 
+FPU ?= hard
+FPU_FLAGS := -mfpu=fpv4-sp-d16 -mfloat-abi=$(FPU)
+ARCH_FLAGS := -mcpu=cortex-m4 -mthumb $(FPU_FLAGS)
+
 TGT_CPPFLAGS += -MD
 TGT_CPPFLAGS += -Wall -Wundef $(INCLUDES)
 TGT_CPPFLAGS += $(INCLUDES) $(OPENCM3_DEFS)
@@ -72,6 +119,7 @@ TGT_CFLAGS += -fno-common
 TGT_CFLAGS += -ffunction-sections -fdata-sections
 TGT_CFLAGS += -Wextra -Wshadow -Wno-unused-variable -Wimplicit-function-declaration
 TGT_CFLAGS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes
+TGT_CFLAGS += $(S_DEFS) 
 
 TGT_CXXFLAGS += $(OPT) $(CXXSTD) -ggdb3
 TGT_CXXFLAGS += $(ARCH_FLAGS)
@@ -86,6 +134,7 @@ TGT_LDFLAGS += $(ARCH_FLAGS)
 TGT_LDFLAGS += -specs=nano.specs
 TGT_LDFLAGS += -Wl,--gc-sections
 TGT_LDFLAGS += -static 
+
 # OPTIONAL
 #TGT_LDFLAGS += -Wl,-Map=$(PROJECT).map
 ifeq ($(V),99)
@@ -98,7 +147,9 @@ LDLIBS += -l$(OPENCM3_LIB)
 endif
 # nosys is only in newer gcc-arm-embedded...
 #LDLIBS += -specs=nosys.specs
-LDLIBS += -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+LDLIBS += -Wl,--start-group -lc -lgcc $(S_LDFLAGS) -Wl,--end-group
+LDLIBS += $(S_LDLIBS)
+LDLIBS += $(LIBS)
 
 # Burn in legacy hell fortran modula pascal yacc idontevenwat
 .SUFFIXES:
@@ -111,8 +162,10 @@ LDLIBS += -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
 %: s.%
 %: SCCS/s.%
 
-all: $(PROJECT).elf $(PROJECT).bin
-flash: $(PROJECT).flash
+
+
+all: $(PROFILE_DIR)/$(PROJECT).elf $(PROFILE_DIR)/$(PROJECT).bin
+#flash: $(PROJECT).flash
 
 # error if not using linker script generator
 ifeq (,$(DEVICE))
@@ -126,22 +179,22 @@ GENERATED_BINS += $(LDSCRIPT)
 endif
 
 # Need a special rule to have a bin dir
-$(BUILD_DIR)/%.o: %.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@printf "  CC\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_CFLAGS) $(CFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(BUILD_DIR)/%.o: %.cxx
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cxx
 	@printf "  CXX\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) $(TGT_CXXFLAGS) $(CXXFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(BUILD_DIR)/%.o: %.S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
 	@printf "  AS\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_ASFLAGS) $(ASFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS)
+$(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS)
 	@printf "  LD\t$@\n"
 	$(Q)$(LD) $(TGT_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $@
 
@@ -170,8 +223,10 @@ else
 		$(NULL)
 endif
 
+include $(OPENCM3_DIR)/mk/genlink-rules.mk
+
 st_flash: all
-	sudo st-flash --reset write $(PROJECT).bin $(WRITE_ADDR)
+	sudo st-flash --reset write $(PROFILE_DIR)/$(PROJECT).bin $(WRITE_ADDR)
 
 flash_erase:
 	sudo st-flash erase 
