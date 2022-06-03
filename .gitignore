@@ -6,3 +6,6 @@ libopencm3
 *.so
 *.o
 workspace.code-workspace
+debug/
+release/
+

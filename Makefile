@@ -45,6 +45,14 @@ CFILES +=
 AFILES +=
 
 LIBS += -lm
+LIBS += -lopencm3
+
+LIB_OBJ = libopencm3.a
+LIB_OBJ +=
+
+LIB_LOCATION = $(PROFILE_DIR)/lib_bin
+
+LIBOPENCM3_TARGET ?= stm32/f4
 
 ifeq ($(PROFILE),debug)
 
@@ -129,7 +137,7 @@ TGT_CXXFLAGS += -Wextra -Wshadow -Wredundant-decls  -Weffc++
 
 TGT_ASFLAGS += $(OPT) $(ARCH_FLAGS) -ggdb3
 
-TGT_LDFLAGS += -T$(LDSCRIPT) -L$(OPENCM3_DIR)/lib -nostartfiles
+TGT_LDFLAGS += -T$(LDSCRIPT) -L$(LIB_LOCATION) -nostartfiles
 TGT_LDFLAGS += $(ARCH_FLAGS)
 TGT_LDFLAGS += -specs=nano.specs
 TGT_LDFLAGS += -Wl,--gc-sections
@@ -143,7 +151,6 @@ endif
 
 # Linker script generator fills this in for us.
 ifeq (,$(DEVICE))
-LDLIBS += -l$(OPENCM3_LIB)
 endif
 # nosys is only in newer gcc-arm-embedded...
 #LDLIBS += -specs=nosys.specs
@@ -162,7 +169,11 @@ LDLIBS += $(LIBS)
 %: s.%
 %: SCCS/s.%
 
+$(BUILD_DIR):
+	mkdir -p $@
 
+$(LIB_LOCATION):
+	mkdir -p $@
 
 all: $(PROFILE_DIR)/$(PROJECT).elf $(PROFILE_DIR)/$(PROJECT).bin
 #flash: $(PROJECT).flash
@@ -178,23 +189,31 @@ else
 GENERATED_BINS += $(LDSCRIPT)
 endif
 
+$(LIB_LOCATION)/libopencm3.a: | $(LIB_LOCATION) $(OPENCM3_DIR)/Makefile
+	@echo Building libopencm3 for $(PROFILE) profile...
+	cd $(OPENCM3_DIR) && $(MAKE) $(MAKEFLAGS) TARGETS="$(LIBOPENCM3_TARGET)" FP_FLAGS="$(FPU_FLAGS)" CFLAGS="$(CFLAGS)" V=1 clean lib
+	cp $(OPENCM3_DIR)/lib/libopencm3_$(subst /,,$(LIBOPENCM3_TARGET)).a $@
+	@echo libopencm3 for $(PROFILE) profile is built
+
+include $(OPENCM3_DIR)/mk/genlink-rules.mk
+
 # Need a special rule to have a bin dir
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(LIB_LOCATION)/libopencm3.a
 	@printf "  CC\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_CFLAGS) $(CFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cxx
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cxx | $(LIB_LOCATION)/libopencm3.a
 	@printf "  CXX\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) $(TGT_CXXFLAGS) $(CXXFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(LIB_LOCATION)/libopencm3.a
 	@printf "  AS\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_ASFLAGS) $(ASFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS)
+$(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS) | $(LIB_LOCATION)/libopencm3.a
 	@printf "  LD\t$@\n"
 	$(Q)$(LD) $(TGT_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $@
 
@@ -223,8 +242,6 @@ else
 		$(NULL)
 endif
 
-include $(OPENCM3_DIR)/mk/genlink-rules.mk
-
 st_flash: all
 	sudo st-flash --reset write $(PROFILE_DIR)/$(PROJECT).bin $(WRITE_ADDR)
 
@@ -236,7 +253,7 @@ clean:
 	rm -rf $(BUILD_DIR) $(GENERATED_BINS)
 
 mr_proper: 
-	rm -rf  $(PROJECT).bin $(PROJECT).elf
+	rm -rf  $(PROFILE_DIR)/$(PROJECT).{elf,bin}
 
 .PHONY: all clean flash st_flash flash_erase
 -include $(OBJS:.o=.d)
