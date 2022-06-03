@@ -8,4 +8,5 @@ libopencm3
 workspace.code-workspace
 debug/
 release/
+:tt
 
