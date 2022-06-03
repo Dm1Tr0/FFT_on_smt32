@@ -64,8 +64,9 @@ S_DEFS		+= -DENABLE_SEMIHOSTING=1
 else 
 S_LDFLAGS += -lnosys
 endif
-
 endif
+
+OOCD ?= openocd -f ./discovery_conf.cfg
 
 # TODO - you will need to edit these two lines!
 DEVICE=stm32f407vgt6
@@ -99,6 +100,7 @@ PREFIX	?= arm-none-eabi-
 CC	= $(PREFIX)gcc
 CXX	= $(PREFIX)g++
 LD	= $(PREFIX)gcc
+GDB = $(PREFIX)gdb
 OBJCOPY	= $(PREFIX)objcopy
 OBJDUMP	= $(PREFIX)objdump
 OOCD	?= openocd
@@ -227,19 +229,14 @@ $(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS) | $(LIB_LOCATION)/
 %.list: %.elf
 	$(OBJDUMP) -S $< > $@
 
-%.flash: %.elf
-	@printf "  FLASH\t$<\n"
-ifeq (,$(OOCD_FILE))
-	$(Q)(echo "halt; program $(realpath $(*).elf) verify reset" | nc -4 localhost 4444 2>/dev/null) || \
-		$(OOCD) -f interface/$(OOCD_INTERFACE).cfg \
-		-f target/$(OOCD_TARGET).cfg \
-		-c "program $(realpath $(*).elf) verify reset exit" \
-		$(NULL)
+flash: $(PROFILE_DIR)/$(PROJECT).elf
+	$(OOCD) -c "program $< verify reset exit"
+
+gdb: $(PROFILE_DIR)/$(PROJECT).elf
+ifeq ("$(ENABLE_SEMIHOSTING)","1")
+	$(GDB) -ex 'target extended-remote | $(OOCD) -c "gdb_port pipe; init; arm semihosting enable"' $<
 else
-	$(Q)(echo "halt; program $(realpath $(*).elf) verify reset" | nc -4 localhost 4444 2>/dev/null) || \
-		$(OOCD) -f $(OOCD_FILE) \
-		-c "program $(realpath $(*).elf) verify reset exit" \
-		$(NULL)
+	$(GDB) -ex 'target extended-remote | $(OOCD) -c "gdb_port pipe"' $<
 endif
 
 st_flash: all
@@ -247,7 +244,6 @@ st_flash: all
 
 flash_erase:
 	sudo st-flash erase 
-
 
 clean:
 	rm -rf $(BUILD_DIR) $(GENERATED_BINS)
