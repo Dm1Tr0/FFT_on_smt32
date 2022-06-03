@@ -191,7 +191,7 @@ endif
 
 $(LIB_LOCATION)/libopencm3.a: | $(LIB_LOCATION) $(OPENCM3_DIR)/Makefile
 	@echo Building libopencm3 for $(PROFILE) profile...
-	cd $(OPENCM3_DIR) && $(MAKE) $(MAKEFLAGS) TARGETS="$(LIBOPENCM3_TARGET)" FP_FLAGS="$(FPU_FLAGS)" CFLAGS="$(CFLAGS)" V=1 clean lib
+	cd $(OPENCM3_DIR) && $(MAKE) $(MAKEFLAGS) TARGETS="$(LIBOPENCM3_TARGET)" FP_FLAGS="$(FPU_FLAGS)" CFLAGS="$(TGT_CFLAGS)" V=1 clean lib
 	cp $(OPENCM3_DIR)/lib/libopencm3_$(subst /,,$(LIBOPENCM3_TARGET)).a $@
 	@echo libopencm3 for $(PROFILE) profile is built
 
@@ -252,8 +252,8 @@ flash_erase:
 clean:
 	rm -rf $(BUILD_DIR) $(GENERATED_BINS)
 
-mr_proper: 
-	rm -rf  $(PROFILE_DIR)/$(PROJECT).{elf,bin}
+mr_proper: clean
+	rm -rf  $(LIB_LOCATION)
 
 .PHONY: all clean flash st_flash flash_erase
 -include $(OBJS:.o=.d)
