@@ -31,7 +31,7 @@
 # C++ hasn't been actually tested with this..... sorry bout that. ;)
 # Second expansion/secondary not set, add this if you need them.
 
-PROJECT = gdb_test
+PROJECT = high freq_timer
 WRITE_ADDR = 0x8000000
 
 PROFILE ?= debug
@@ -40,7 +40,7 @@ PROFILE_DIR ?= $(SRC_DIR)/$(PROFILE)
 BUILD_DIR = $(SRC_DIR)/$(PROFILE)/bin
 
 SHARED_DIR = ./my-common-code
-CFILES =  simple_prog.c led_lib.c
+CFILES = timer.c led_lib.c my-project.c cdcacm.c adc_lib.c
 CFILES += 
 AFILES +=
 
@@ -236,6 +236,8 @@ st_util_server:
 	st-util --semihosting &
 
 # to make it work just tipe load and continue
+# after continue you may watch the resaults of semihosting prints in :tt
+# for some reason cant make the semihosting prints to apeare in the GDB cmd line :(
 gdb: $(PROFILE_DIR)/$(PROJECT).elf st_util_server
 ifeq ("$(ENABLE_SEMIHOSTING)","1")
 	$(GDB) -ex 'target extended-remote localhost:4242' $<  

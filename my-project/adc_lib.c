@@ -5,12 +5,10 @@
 #include <libopencm3/stm32/gpio.h>
 #include <stdint.h>
 #include <led_hdr.h>
+#include <general_defs.h>
+#include <adc_hdr.h>
 
-#define AMT_OF_CHAN_USED 1
-
-#define SMPL_TO_V 3.3 / 4096.0
-
-static void adc_temp_init(void)
+void adc_init(void)
 {
 	// * Sensor is connected to ADC12IN9 -- ADC1 and ADC2 (pin is common for them), input 9
 	// * By opening STM32F407_Datasheet_(DS8626).pdf at page 50, we can see ADC12_IN9 is
@@ -71,12 +69,12 @@ static void adc_temp_init(void)
 	// * Set sampling time. We will sample for 480 fadc cycles, which gives us sampling
 	//   frequency of Fs = fadc / 480 = 1 MHz / 480 = 2083.33 Hz
 	// * So, set all 16 regular group sampling times to 480 cycles (SMPx bits in ADC_SMPRx)
-	uint8_t channels[16];
-	for (int i = 0; i <  16; i++) {
-		adc_set_sample_time(ADC1, i, ADC_SMPR_SMP_480CYC);
+	uint8_t channels[AMT_OF_CHAN_USED];
+	for (int i = 0; i < AMT_OF_CHAN_USED; i++) {
+		adc_set_sample_time(ADC1, i, ADC_SMPR_SMP_3CYC);
 		channels[i] = 9;	// set each element of group to channel 1
 	}
-	adc_set_regular_sequence(ADC1, 16, channels);
+	adc_set_regular_sequence(ADC1, AMT_OF_CHAN_USED, channels);
 
 	// Configure End of Conversion (EOC) flag to be set after each channel in group
 	// is converted. This will raise interrupt, where we read the conversion value
@@ -120,7 +118,7 @@ void adc_isr(void)
 	adc_clear_flag(ADC1, ADC_SR_EOC);	// clear end of conversion flag not to cycle
 }
 
-static uint16_t adc_acquire(void)
+uint16_t adc_acquire(void)
 {
 	// start conversion
 	adc_start_conversion_regular(ADC1);
@@ -136,26 +134,5 @@ static uint16_t adc_acquire(void)
 
 	return __adc_avgval;	// converted value after averaging in ISR
 }
-
-uint8_t adc_ruff_convert(uint16_t adc_val) 
-{
-
-} 
-
-int main(void)
-{
-    leds_init();
-	cm_enable_interrupts();
-	adc_temp_init();
-    leds_write(8);
-
-	while (1) {
-		uint16_t adcval = adc_acquire();
-//		uint8_t V = adc_ruff_convert(adcval);
-        leds_write(adcval);
-	}
-    return 0;
-}
-
 
 

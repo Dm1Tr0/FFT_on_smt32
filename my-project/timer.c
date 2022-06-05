@@ -27,13 +27,27 @@
 
 static struct tim_cb_str *tim_cb_str_p;
 
-void tim_clock_setup(void)
+static int tim_init_handler(struct tim_cb_str *cb_str) 
+{
+	if(cb_str->data_size <= MAX_CB_DATA_LEN && cb_str->tim_cb != NULL) {
+		tim_cb_str_p = cb_str;
+	} else {
+		DBG_PRINT("the initializiation failed, too long data \n");
+		DBG_LED(0x5);
+		return E_GER;
+	}
+
+	return E_OK;
+}
+
+void clock_setup(void)
 {
 	rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
 }
 
-void tim_setup(uint16_t t_val)
+void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str)
 {
+	tim_init_handler(cb_str);
 	/* Enable TIM2 clock. */
 	rcc_periph_clock_enable(RCC_TIM2);
 
@@ -60,38 +74,35 @@ void tim_setup(uint16_t t_val)
 	 * In our case, TIM2 on APB1 is running at double frequency, so this
 	 * sets the prescaler to have the timer run at 5kHz
 	 */
-	timer_set_prescaler(TIM2, ((rcc_apb1_frequency * 2) / 5000));
+	timer_set_prescaler(TIM2, ((rcc_apb1_frequency * 2) / frequancy));
 
 	/* Disable preload. */
 	timer_disable_preload(TIM2);
 	timer_continuous_mode(TIM2);
 
 	/* count full range, as we'll update compare value continuously */
-	timer_set_period(TIM2, t_val);
+	timer_set_period(TIM2, period);
 
 	/* Set the initual output compare value for OC1. */
 	//timer_set_oc_value(TIM2, TIM_OC1, t_val);
 
 	/* Counter enable. */
-	timer_enable_counter(TIM2);
+	//timer_enable_counter(TIM2);
 
 	/* Enable Channel 1 compare interrupt to recalculate compare values */
 	timer_enable_irq(TIM2, TIM_DIER_CC1IE);
 }
 
-int tim_init_handler(struct tim_cb_str *data) 
-{
-	if(data->data_size <= MAX_CB_DATA_LEN && data->tim_cb != NULL) {
-		tim_cb_str_p = data;
-	} else {
-		DBG_PRINT("the initializiation failed, too long data \n");
-		DBG_LED(0x5);
-		return E_GER;
-	}
-
-	return E_OK;
+void tim_enable(void) {
+	timer_enable_counter(TIM2);
 }
 
+void tim_disable(void) {
+	timer_disable_counter(TIM2);
+}
+
+
+// thus you can regulate faze
 int tim_set_oc_val(uint16_t freq) 
 {
 	/*
@@ -125,22 +136,3 @@ void tim2_isr(void)
 		}
 	}
 }
-
-
-
-/*
- * exampe of initialization  
- *
- *	int time_init(void)
- *  {
- *		tim_clock_setup();
- *		gpio_setup();
- *		tim_setup(1234); //random val
- *
- *		while (1) {
- *			;
- *		}
- *
- *		return 0;
- *	}
-*/

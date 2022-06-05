@@ -208,7 +208,7 @@ static void cdcacm_data_rx_cb(usbd_device *usb_d_dev, uint8_t ep)
 	if (usb_cb_str_p != NULL) {
 		usb_cb_str_p->usb_cb(&usb_cb_str_p->cb_data);
 	} else {
-		DBG_PRINT(" %s the usb_callback is not initialized yet \n");
+		DBG_PRINT(" %s the usb_callback is not initialized yet \n", __func__);
 	}
 }
 
