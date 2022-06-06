@@ -18,7 +18,7 @@ struct usb_cb_str {
 
 int usb_read_data_packet(char *buff, uint32_t len);
 
-int usb_write_data_packet(char *buff, uint32_t len);
+int usb_write_data_packet(uint16_t *buff, uint32_t len);
 
 void usb_init(struct usb_cb_str* cb_str);
 

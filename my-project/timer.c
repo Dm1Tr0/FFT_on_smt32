@@ -75,7 +75,8 @@ void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str)
 	 * sets the prescaler to have the timer run at 5kHz
 	 */
 	timer_set_prescaler(TIM2, ((rcc_apb1_frequency * 2) / frequancy));
-
+	
+	DBG_PRINT("the freq Is %u \n", rcc_apb1_frequency);
 	/* Disable preload. */
 	timer_disable_preload(TIM2);
 	timer_continuous_mode(TIM2);

@@ -215,7 +215,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(LIB_LOCATION)/libopencm3.a
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_ASFLAGS) $(ASFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS) | $(LIB_LOCATION)/libopencm3.a
+$(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS) | $(LIB_LOCATION)/libopencm3.a 
 	@printf "  LD\t$@\n"
 	$(Q)$(LD) $(TGT_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $@
 
@@ -237,13 +237,9 @@ st_util_server:
 
 # to make it work just tipe load and continue
 # after continue you may watch the resaults of semihosting prints in :tt
-# for some reason cant make the semihosting prints to apeare in the GDB cmd line :(
-gdb: $(PROFILE_DIR)/$(PROJECT).elf st_util_server
-ifeq ("$(ENABLE_SEMIHOSTING)","1")
+# for some reason can't make the semihosting prints to apeare in the GDB cmd line :(
+gdb: $(PROFILE_DIR)/$(PROJECT).elf flash st_util_server
 	$(GDB) -ex 'target extended-remote localhost:4242' $<  
-else
-	$(GDB) -ex 'target extended-remote | $(OOCD) -c "gdb_port pipe"' $<	
-endif
 
 st_flash: all
 	sudo st-flash --reset write $(PROFILE_DIR)/$(PROJECT).bin $(WRITE_ADDR)
@@ -251,8 +247,13 @@ st_flash: all
 flash_erase:
 	sudo st-flash erase 
 
-clean:
-	rm -rf $(BUILD_DIR) $(GENERATED_BINS)
+clean_bins: 
+	rm -rf $(GENERATED_BINS)
+
+clean_obj:
+	rm -rf $(BUILD_DIR)/*.o
+
+clean: clean_obj clean_bins
 
 mr_proper: clean
 	rm -rf  $(LIB_LOCATION)

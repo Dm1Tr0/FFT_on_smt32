@@ -123,14 +123,14 @@ uint16_t adc_acquire(void)
 	// start conversion
 	adc_start_conversion_regular(ADC1);
 	
-	// // wait for conversion to start
-	// while (! adc_get_flag(ADC1, ADC_SR_STRT)) {
-	// 	__WFI();
-	// }
-	// // sleep while adc has not finished coverting all channels in group
-	// while (adc_get_flag(ADC1, ADC_SR_STRT)) {
-	// 	__WFI();
-	// }
+	// wait for conversion to start
+	while (! adc_get_flag(ADC1, ADC_SR_STRT)) {
+		__asm__ volatile ("wfi" ::: "memory");
+	}
+	// sleep while adc has not finished coverting all channels in group
+	while (adc_get_flag(ADC1, ADC_SR_STRT)) {
+		__asm__ volatile ("wfi" ::: "memory");
+	}
 
 	return __adc_avgval;	// converted value after averaging in ISR
 }

@@ -18,15 +18,25 @@
 
 static char data_buffer[USB_DATA_BUF_LEN];
 static uint16_t samples[MAX_AMNT_OF_SAMPL];
-static uint32_t samples_amnt;
-uint8_t sampling_in_progress, stop_sampling;
+static int32_t samples_amnt;
+uint8_t sampling_in_progress, stop_sampling, reading_in_progres;
 
 enum comands {    //        EXAMPLES
-	START    = '1',  //  START  n (where n amount of samples to read) no value instead of n means untill stop 
+	START    = '1',  //  START  n  (where n amount of samples to read) no value instead of n means untill stop 
 	READ_TD  = '2',  //  READ_TD   read the aray of samples
-	READ_DFT = '3',   
-	READ_FFT = '4'   //  READ_TD
+	READ_DFT = '3',  //  READ_     read the resault of digital furie transformation aplied to the input signal
+	READ_FFT = '4',   //  READ_FFT  read the resault of fest furie transformation aplied to the input signal
+	R_TEST   = '5'
+
 };
+
+static void dbg_array_print(uint16_t *ptr, uint32_t lenth)
+{
+	char *ptr_8 = (char *)ptr;
+	for (uint32_t i = 0; i < lenth; i++) {
+		DBG_PRINT("%c \n", ptr[i]);
+	}
+}
 
 static uint32_t request_handler(char *buff, int32_t len)
 {
@@ -38,13 +48,19 @@ static uint32_t request_handler(char *buff, int32_t len)
 	if(len > 0 && buff != NULL) {
 		switch (buff[0]) {
 		case START:
+			if (reading_in_progres) {
+				DBG_PRINT("%s unable to start sampling the reading in progress", __func__ );
+				break;
+			}
+			samples_amnt = 0; // cleaning up the samples ammount
 			if (buff[1] == ' ') {
 				int32_t parsed_value = 0; 
 				ptr = buff + 2; // pointer to second argument
 				parsed_value = atoi(ptr);
+				
 				if (parsed_value > 0) { //dont forget to implement MIN_AMNT_OF_SAMPLS
-					leds_write(parsed_value);
 					samples_amnt = parsed_value;
+					memset(samples, 0, MAX_AMNT_OF_SAMPL);
 					tim_enable();
 				} else {
 					DBG_PRINT(" %s the parsed amount of samples is invalid \n", __func__);
@@ -59,10 +75,30 @@ static uint32_t request_handler(char *buff, int32_t len)
 			break;
 
 		case READ_TD:
-			usb_write_data_packet((char *)samples, 1); // dont forget to set the amnt of symbols to wr
-			memset(samples, 0, MAX_AMNT_OF_SAMPL);
-			break;
+			if (sampling_in_progress) {
+				DBG_PRINT(" %s unable to handle reading reques sampling in progress", __func__);
+				break;
+			}
+			#define READ_CNT 50  // yeah looks bed :) but unfortunatly I unable to pass more then 50 bytes at a time. so this is the bes way I found to solve the problem
+			static int32_t read = 0;
+			static uint16_t *sample_p = samples;
 			
+			reading_in_progres = READ_CNT;
+			read += READ_CNT;
+
+			dbg_array_print(sample_p, samples_amnt - read < 0 ? READ_CNT + samples_amnt - read : READ_CNT);
+			usb_write_data_packet(sample_p, samples_amnt - read < 0 ? READ_CNT + samples_amnt - read : READ_CNT); // as long as samples has uint16_t, we have to scale sample array size to char data type
+			
+			if (read >= samples_amnt) {
+				reading_in_progres = 0;
+				sample_p = samples;
+			} else {
+				sample_p = read + samples;
+			}
+
+			#undef READ_CNT
+			break;
+
 		default:
 			DBG_PRINT(" %s unsuported command \n", __func__);
 			break;
@@ -90,15 +126,19 @@ static void tim_cb_func(struct tim_cb_data *cb_data)
 {
 	(void)cb_data;
 	sampling_in_progress = 1;
+	static int32_t cnt_samples = 0; 
 
-	if (samples_amnt-- == 0 || stop_sampling) {
+	if (samples_amnt == cnt_samples || stop_sampling) {
 		tim_disable();
 		sampling_in_progress = 0;
 		stop_sampling = 0;
+		cnt_samples = 0;
 		return;
 	}
 
-	DBG_PRINT("samples left %"PRIu32" \n", samples_amnt);
+	samples[cnt_samples] = cnt_samples + (uint16_t)'0';
+	cnt_samples++;
+	DBG_PRINT("samples left %"PRIu32" \n", cnt_samples);
 	
 }
 
@@ -122,7 +162,7 @@ int main(void)
   	memset(&tim_cb, 0, sizeof(struct tim_cb_str));
   	tim_cb.tim_cb = tim_cb_func;
   	tim_cb.data_size = 0; // no extra data
-  	tim_setup(1, 1000000, &tim_cb); 
+  	tim_setup(1, 5000000, &tim_cb); 
 	
 	adc_init();
     leds_write(2);

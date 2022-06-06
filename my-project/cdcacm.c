@@ -236,12 +236,12 @@ int usb_read_data_packet(char *buff, uint32_t len)
 	return E_OK;
 }
 
-int usb_write_data_packet(char *buff, uint32_t len)
+int usb_write_data_packet(uint16_t *buff, uint32_t len)
 {
 	if (len && buff != NULL && usbd_dev != NULL) {
 		while (usbd_ep_write_packet(usbd_dev, 0x82, buff, len) == 0);
 	} else {
-		DBG_PRINT( " %s Zero write len or bufer is == NULL, or usb_dev is not initialized \n", __func__);
+		DBG_PRINT( " %s error : len = %u, buff = %p, usb_dev = %p \n", __func__, len, buff, usbd_dev);
 		return E_GER;
 	}
 
