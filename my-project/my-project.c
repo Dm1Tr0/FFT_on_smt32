@@ -18,7 +18,7 @@
 
 static char data_buffer[USB_DATA_BUF_LEN];
 static uint16_t samples[MAX_AMNT_OF_SAMPL];
-static int32_t samples_amnt;
+static int32_t samples_amnt = 100;
 uint8_t sampling_in_progress, stop_sampling, reading_in_progres;
 
 enum comands {    //        EXAMPLES
@@ -136,9 +136,9 @@ static void tim_cb_func(struct tim_cb_data *cb_data)
 		return;
 	}
 
-	samples[cnt_samples] = cnt_samples + (uint16_t)'0';
+	samples[cnt_samples] = 1;
 	cnt_samples++;
-	DBG_PRINT("samples left %"PRIu32" \n", cnt_samples);
+	DBG_PRINT("samples left %"PRIu32" \n", samples[cnt_samples]);
 	
 }
 
@@ -166,8 +166,9 @@ int main(void)
 	
 	adc_init();
     leds_write(2);
-
+	tim_enable();
 	while (1) {
+		adc_acquire();
 		usbd_singl_poll();
 	}
 

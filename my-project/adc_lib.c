@@ -80,9 +80,6 @@ void adc_init(void)
 	// is converted. This will raise interrupt, where we read the conversion value
 	adc_eoc_after_each(ADC1);
 
-    // Enable scan mode to convert a group of channels
-	adc_enable_scan_mode(ADC1);
-
 	// Configure to perform a conversion of group of channels and stop
 	adc_set_single_conversion_mode(ADC1);
 
@@ -127,6 +124,7 @@ uint16_t adc_acquire(void)
 	while (! adc_get_flag(ADC1, ADC_SR_STRT)) {
 		__asm__ volatile ("wfi" ::: "memory");
 	}
+
 	// sleep while adc has not finished coverting all channels in group
 	while (adc_get_flag(ADC1, ADC_SR_STRT)) {
 		__asm__ volatile ("wfi" ::: "memory");
