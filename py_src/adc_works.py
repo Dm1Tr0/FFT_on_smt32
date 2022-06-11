@@ -40,26 +40,32 @@ class Stm_ser():
         if not self.rounds:
             print('there were no request for recording, nothing ro reade')
             return -1
-        output = bytes('', encoding='utf8')
+        bin_output = bytes('', encoding='utf8')
+        output = []
         for i in range(0,self.rounds):
             self.write('td_read')
             
-            output += self.serial.read_all()
-            print(len(output))
-        return (output)
+            bin_output += self.serial.read_all()
+            print(len(bin_output))
+        
+        for i in range(0,len(bin_output), 2):
+            output.append(int(bin_output[i] + bin_output[i + 1] * 2**8))
+
+        return output
+            
+            
 
 
 stm = Stm_ser('/dev/ttyACM1')
+stm.write("start 128")
+time.sleep(10)
+data = stm.read_data()
+print(data)
 
-stm.write('start 101')
-time.sleep(0.5)
-string = stm.read_data()
-print(f"{string}, size: {len(string)}")
+figure, axis = plt.subplots(1,1)
 
+axis.plot(data)
 
-# figure, axis = plt.subplots(1,1)
+axis.set_title("data")
 
-# axis.plot(string)
-# axis.set_title("clean")
-
-# plt.show()
+plt.show()

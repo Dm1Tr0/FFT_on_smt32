@@ -18,6 +18,8 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str);
 
 void adc_init_cb(struct adc_cb_str *cb_str);
 
+uint8_t handle_adc_overrun(void);
+
 uint16_t adc_acquire(void);
 
 void adc_init(void);

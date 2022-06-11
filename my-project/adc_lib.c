@@ -56,7 +56,7 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str)
 	adc_enable_discontinuous_mode_regular(ADC1,1);
 
 	/* We want to start the injected conversion with the TIM2 TRGO */
-	adc_enable_external_trigger_regular(ADC1, ADC_CR2_EXTSEL_TIM2_TRGO,  ADC_CR2_EXTEN_BOTH_EDGES);
+	adc_enable_external_trigger_regular(ADC1, ADC_CR2_EXTSEL_TIM2_TRGO,  ADC_CR2_EXTEN_RISING_EDGE);
 	adc_set_right_aligned(ADC1);
 
 	DBG_PRINT("1 the adc_cr1 EOC = %x \n",ADC_CR1(ADC1) & ADC_CR1_EOCIE);
@@ -132,12 +132,27 @@ void adc_isr(void)
 {
 	if (adc_str_p != NULL) {
 		adc_str_p->adc_cb(&adc_str_p->cb_data);
+		adc_clear_flag(ADC1, ADC_SR_STRT);	// clear regular channel
+		adc_clear_flag(ADC1, ADC_SR_EOC);	// clear end of conversion flag not to cycle
 	} else {
-		DBG_PRINT("%s the adc cb is not initialized \n");
+		DBG_PRINT("%s the adc cb is not initialized \n", __func__);
 	}
+
 }
 
 uint16_t adc_acquire(void)
 {
 	return adc_read_regular(ADC1);
+}
+
+uint8_t handle_adc_overrun(void) 
+{
+	if (adc_get_overrun_flag(ADC1)) {
+		// means we got to interrupt because of overrun flag
+		// we have not read all data and overrun occured -> reset everything
+		adc_clear_flag(ADC1, ADC_SR_OVR);	// reset flag to avoid infinite interrupting
+		return 1;
+	} else {
+		return 0;
+	}
 }
