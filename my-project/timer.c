@@ -102,6 +102,30 @@ void tim_disable(void) {
 	timer_disable_counter(TIM2);
 }
 
+void tim_setup_master_trig(uint16_t period, uint16_t frequancy)
+{
+	/* Set up the timer TIM2 for injected sampling */
+	uint32_t timer;
+
+	timer   = TIM2;
+
+	rcc_periph_clock_enable(RCC_TIM2);
+
+	/* Time Base configuration */
+    rcc_periph_reset_pulse(RST_TIM2);
+	
+    timer_set_mode(timer, TIM_CR1_CKD_CK_INT,
+	    TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+    timer_set_period(timer,period);
+	timer_set_prescaler(timer, ((rcc_apb1_frequency * 2) / frequancy));
+    timer_set_clock_division(timer, 0x0);
+
+	timer_disable_preload(timer);
+	timer_continuous_mode(timer);
+
+    /* Generate TRGO on every update. */
+    timer_set_master_mode(timer, TIM_CR2_MMS_UPDATE);
+}
 
 // thus you can regulate faze
 int tim_set_oc_val(uint16_t freq) 

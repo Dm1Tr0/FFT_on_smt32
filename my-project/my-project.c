@@ -30,14 +30,6 @@ enum comands {    //        EXAMPLES
 
 };
 
-static void dbg_array_print(uint16_t *ptr, uint32_t lenth)
-{
-	char *ptr_8 = (char *)ptr;
-	for (uint32_t i = 0; i < lenth; i++) {
-		DBG_PRINT("%c \n", ptr[i]);
-	}
-}
-
 static uint32_t request_handler(char *buff, int32_t len)
 {
 	char *ptr = NULL;

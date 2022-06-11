@@ -16,14 +16,16 @@ struct tim_cb_str {
 	uint32_t data_size;
 };
 
-void clock_setup(void);
-
 void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str);
 
-int tim_set_oc_val(uint16_t freq);
+void tim_setup_master_trig(uint16_t period, uint16_t frequancy);
 
-void tim_enable(void);
+int  tim_set_oc_val(uint16_t freq);
+
+void clock_setup(void);
 
 void tim_disable(void);
+
+void tim_enable(void);
 
 #endif

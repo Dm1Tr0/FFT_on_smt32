@@ -8,12 +8,16 @@
 extern void initialise_monitor_handles(void);
 
 #define DBG_PRINT( ... ) ({ \
-    if ("__VA_ARGS__") {    \
         printf(__VA_ARGS__);\
-    } else {                \
-        printf(__VA_ARGS__);\
-    }                       \
 })
+
+static inline void dbg_array_print(uint16_t *ptr, uint32_t lenth)
+{
+	char *ptr_8 = (char *)ptr;
+	for (uint32_t i = 0; i < lenth; i++) {
+		DBG_PRINT("%c \n", ptr[i]);
+	}
+}
 
 #define DBG_LED(val)
 
@@ -22,6 +26,7 @@ extern void initialise_monitor_handles(void);
 #define DBG_PRINT(val, ... ) 
 #define DBG_LED(val)
 #define initialise_monitor_handles() 
+#define dbg_array_print(ptr, len)
 
 #endif
 
