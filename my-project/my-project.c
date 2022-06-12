@@ -72,7 +72,7 @@ static uint32_t request_handler(char *buff, int32_t len)
 				DBG_PRINT(" %s unable to handle reading reques sampling in progress", __func__);
 				break;
 			}
-			#define READ_CNT 50  // yeah looks bed ;( but unfortunatly I unable to pass more then 50 bytes at a time. so this is the best way I found to solve the problem
+			#define READ_CNT 25  // yeah looks bed ;( but unfortunatly I unable to pass more then 50 bytes at a time. so this is the best way I found to solve the problem
 			static int32_t read = 0;
 			static uint16_t *sample_p = samples;
 			
@@ -120,19 +120,18 @@ static void adc_cb_func(struct adc_cb_data *cb_data)
 {
 	(void)cb_data;
 	static int32_t cnt_samples = 0; 
-	
+	tim_disable(); // in order to avoid overrun
 	if (!sampling_in_progress) {
 		DBG_PRINT("possibly stucked inside of the adc interupt \n");
 		return;
 	}
 
 	if(handle_adc_overrun()) {
-		DBG_PRINT("the adc overrun ocured, the voltage is to high \n");
+		DBG_PRINT("the adc overrun \n");
 		return;
 	}
 
 	if (samples_amnt == cnt_samples || stop_sampling) {
-		tim_disable();
 		DBG_PRINT("the sempling ended \n");
 		sampling_in_progress = 0;
 		stop_sampling = 0;
@@ -143,6 +142,7 @@ static void adc_cb_func(struct adc_cb_data *cb_data)
 	samples[cnt_samples] = adc_acquire();
 	DBG_PRINT("sample cnt = %"PRId32" sapmle restaut: %"PRIu32" \n", cnt_samples, samples[cnt_samples]);
 	cnt_samples++;
+	tim_enable(); // in order to avoid overrun
 }
 
 int main(void)

@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/timer.h>
 #include <stdlib.h>
 #include <tim_hdr.h>
+#include <led_hdr.h>
 
 static struct tim_cb_str *tim_cb_str_p;
 
@@ -40,9 +41,29 @@ static int tim_init_handler(struct tim_cb_str *cb_str)
 	return E_OK;
 }
 
+ struct ___rcc_clock_scale___ {
+         uint8_t pllm;
+         uint16_t plln;
+         uint8_t pllp;
+         uint8_t pllq;
+         uint8_t pllr;
+         uint8_t pll_source;
+         uint32_t flash_config;
+         uint8_t hpre;
+         uint8_t ppre1;
+         uint8_t ppre2;
+         enum pwr_vos_scale voltage_scale;
+         uint32_t ahb_frequency;
+         uint32_t apb1_frequency;
+         uint32_t apb2_frequency;
+ };
+  
+
 void clock_setup(void)
 {
 	rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
+	DBG_PRINT("we have the folowing setup: hpre %x ppre1 %x ppre2 %x \n",rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ].hpre, rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ].ppre1, rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ].ppre2);
+	DBG_PRINT("having the folowing frequancys ahb %"PRIu32" apb1%"PRIu32" apb2%"PRIu32" \n",rcc_ahb_frequency, rcc_apb1_frequency, rcc_apb2_frequency);
 }
 
 void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str)
@@ -118,7 +139,6 @@ void tim_setup_master_trig(uint16_t period, uint16_t frequancy)
 	    TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
     timer_set_period(timer,period);
 	timer_set_prescaler(timer, ((rcc_apb1_frequency * 2) / frequancy));
-    timer_set_clock_division(timer, 0x0);
 
 	timer_disable_preload(timer);
 	timer_continuous_mode(timer);

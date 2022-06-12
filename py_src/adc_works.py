@@ -7,7 +7,7 @@ class Stm_ser():
         self.serial = s.Serial(path_to_usb_dev)
         print(self.serial.name)
         self.commands = {'start': '1', 'td_read': '2', 'dft_read': '3', 'fft_read': "4" }
-        self.samples_per_round = 50
+        self.samples_per_round = 25
         self.samples_cnt = 0
         self.rounds = 0
 
@@ -28,7 +28,7 @@ class Stm_ser():
             else :
                 query += self.commands[cmd_list[i]] + ' '
 
-        print(query)
+        print(f"query: {query}")
         self.serial.write(bytes(query, encoding='utf8'))
         return 0
     
@@ -44,11 +44,15 @@ class Stm_ser():
         output = []
         for i in range(0,self.rounds):
             self.write('td_read')
-            
+            time.sleep(1)
             bin_output += self.serial.read_all()
-            print(len(bin_output))
+            print(f"read from device cnt: {len(bin_output)}")
         
+        for b in bin_output:
+            print(format(b,"b"))
+
         for i in range(0,len(bin_output), 2):
+            print(f"the first argumen:, the second argument: {bin_output[i + 1]}, the second argument to the pow: {bin_output[i + 1] * 2**8}")
             output.append(int(bin_output[i] + bin_output[i + 1] * 2**8))
 
         return output
@@ -57,8 +61,14 @@ class Stm_ser():
 
 
 stm = Stm_ser('/dev/ttyACM1')
-stm.write("start 128")
-time.sleep(10)
+stm.write("start 50")
+time.sleep(11)
+# stm.write("td_read")
+# time.sleep(10)
+# stm.write("td_read")
+# time.sleep(10)
+# time.sleep("td_read")
+
 data = stm.read_data()
 print(data)
 

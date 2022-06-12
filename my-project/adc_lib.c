@@ -34,6 +34,7 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str)
 	// // * By opening STM32F407_Datasheet_(DS8626).pdf at page 50, we can see ADC12_IN9 is
 	// //   an additional function of PB1 pin
 	// * So set PB1 to analog
+
 	adc_init_cb(cb_str);
 	rcc_periph_clock_enable(RCC_GPIOB);
 	// set ospeed to lowest to minimize noise and power use as application note recommends
@@ -41,26 +42,33 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str)
 	// now set this pin to analog mode
 	gpio_mode_setup(GPIOB, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, 1 << 1);
 
-	// // int i;
 	rcc_periph_clock_enable(RCC_ADC1);
 
 	/* Make sure the ADC doesn't run during config. */
 	adc_power_off(ADC1);
 
 	/* We configure everything for one single timer triggered injected conversion. */
-	adc_disable_scan_mode(ADC1);
+	adc_enable_scan_mode(ADC1);
 	adc_set_single_conversion_mode(ADC1);
 
+	adc_disable_automatic_injected_group_conversion(ADC1);
+
 	/* We can only use discontinuous mode on either the regular OR injected channels, not both */
-	adc_disable_discontinuous_mode_injected(ADC1);
-	adc_enable_discontinuous_mode_regular(ADC1,1);
+ 	
+	adc_enable_external_trigger_regular(ADC1, ADC_CR2_EXTSEL_TIM2_TRGO,  ADC_CR2_EXTEN_RISING_EDGE);
+
+	uint8_t channels[AMT_OF_CHAN_USED];
+	for (int i = 0; i < AMT_OF_CHAN_USED; i++) {
+		adc_set_sample_time(ADC1, i, ADC_SMPR_SMP_3CYC);
+	 	channels[i] = 9;	// set each element of group to channel 1
+	}
+	adc_set_regular_sequence(ADC1, AMT_OF_CHAN_USED, channels);
 
 	/* We want to start the injected conversion with the TIM2 TRGO */
-	adc_enable_external_trigger_regular(ADC1, ADC_CR2_EXTSEL_TIM2_TRGO,  ADC_CR2_EXTEN_RISING_EDGE);
 	adc_set_right_aligned(ADC1);
 
 	DBG_PRINT("1 the adc_cr1 EOC = %x \n",ADC_CR1(ADC1) & ADC_CR1_EOCIE);
-	adc_set_sample_time_on_all_channels(ADC1, ADC_SMPR_SMP_3CYC);
+	adc_eoc_after_each(ADC1);
 
 	nvic_enable_irq(NVIC_ADC_IRQ);
 	adc_enable_eoc_interrupt(ADC1);
@@ -99,7 +107,7 @@ void adc_init(void)
 
 	uint8_t channels[CHNAN_AMTN];
 	for (int i = 0; i < CHNAN_AMTN; i++) {
-		adc_set_sample_time(ADC1, i, ADC_SMPR_SMP_480CYC);
+		adc_set_sample_time(ADC1, i, ADC_SMPR_SMP_3CYC);
 		channels[i] = 9;	// set each element of group to channel 1
 	}
 	adc_set_regular_sequence(ADC1, CHNAN_AMTN, channels);
