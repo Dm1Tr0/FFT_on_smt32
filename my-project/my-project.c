@@ -21,7 +21,7 @@
 static char data_buffer[USB_DATA_BUF_LEN];
 static uint16_t samples[MAX_AMNT_OF_SAMPL];
 static int32_t samples_amnt;
-uint8_t sampling_in_progress, stop_sampling, reading_in_progres;
+uint8_t sampling_in_progress, stop_sampling, data_reading_in_progress;
 
 enum comands {    //        EXAMPLES
 	START    = '1',  //  START  n  (where n amount of samples to read) no value instead of n means untill stop 
@@ -29,79 +29,103 @@ enum comands {    //        EXAMPLES
 	READ_DFT = '3',  //  READ_     read the resault of digital furie transformation aplied to the input signal
 	READ_FFT = '4',  //  READ_FFT  read the resault of fest furie transformation aplied to the input signal
 	R_TEST   = '5'
-
 };
 
-//static pass_aray_via_usb()
+static int32_t pass_aray_via_usb(void)
+{
+	int32_t err = E_OK;
 
-//static get_signal()
+	if (sampling_in_progress) {
+		DBG_PRINT(" %s unable to handle reading reques sampling in progress", __func__);
+		err = E_GER;
+		goto _error;
+		
+	}
+	#define READ_CNT 25  // yeah looks bed ;( but unfortunatly I unable to pass more then 50 bytes at a time. so this is the best way I found to solve the problem
+	static int32_t read = 0;
+	static uint16_t *sample_p = samples;
+	
+	data_reading_in_progress = 1;
+
+	read += READ_CNT;
+
+	usb_write_data_packet(sample_p, samples_amnt - read < 0 ? (READ_CNT + samples_amnt - read) * sizeof(uint16_t) : (READ_CNT) * sizeof(uint16_t)); // as long as samples has uint16_t, we have to scale sample array size to char data type
+	
+	DBG_PRINT("%s the samples amnt %d, and read %d \n", __func__, samples_amnt, read);
+
+	if (read >= samples_amnt) {
+		data_reading_in_progress = 0;
+		sample_p = samples;
+		read = 0;
+		DBG_PRINT("%s the reading procidure ended \n", __func__);
+	} else {
+		sample_p = read + samples;
+	}
+
+_error:
+
+	#undef READ_CNT
+	return err;
+}
+
+static int32_t get_signal(char *buff)
+{
+	uint32_t err = E_OK;
+	char *ptr = NULL;
+
+	DBG_PRINT("%s entered the START comand handler\n", __func__);
+	if (data_reading_in_progress) {
+		DBG_PRINT("%s unable to start sampling the reading in progress \n", __func__ );
+		err = E_GER;
+		goto _error;
+	}
+	samples_amnt = 0; // cleaning up the samples ammount
+	if (buff[0] == ' ') {
+		int32_t parsed_value = 0; 
+		ptr = buff + 1; // pointer to second argument
+		parsed_value = atoi(ptr);
+		
+		if (parsed_value > 0) { //dont forget to implement MIN_AMNT_OF_SAMPLS
+			samples_amnt = parsed_value;
+			memset(samples, 0, MAX_AMNT_OF_SAMPL);
+			sampling_in_progress = 1;
+			tim_enable();
+		} else {
+			DBG_PRINT(" %s the parsed amount of samples is invalid \n", __func__);
+			err = E_GER;
+			goto _error;
+		}
+	} else {
+		DBG_PRINT(" %s unable to parse the comand that seems to look like start \n", __func__);
+		err = E_GER;
+		goto _error;
+	}
+
+_error:
+
+	return err;
+}
 
 static uint32_t request_handler(char *buff, int32_t len)
 {
-	char *ptr = NULL;
 	uint32_t err = E_OK;
-	static int enter_cnt; 
 
 	DBG_PRINT("entered the %s wit request '%s' \n", __func__, buff);
 
 	if(len > 0 && buff != NULL) {
 		switch (buff[0]) {
 		case START:
-			DBG_PRINT("%s entered the START comand handler\n", __func__);
-			if (reading_in_progres) {
-				DBG_PRINT("%s unable to start sampling the reading in progress \n", __func__ );
-				break;
-			}
-			samples_amnt = 0; // cleaning up the samples ammount
-			if (buff[1] == ' ') {
-				int32_t parsed_value = 0; 
-				ptr = buff + 2; // pointer to second argument
-				parsed_value = atoi(ptr);
-				
-				if (parsed_value > 0) { //dont forget to implement MIN_AMNT_OF_SAMPLS
-					samples_amnt = parsed_value;
-					memset(samples, 0, MAX_AMNT_OF_SAMPL);
-					sampling_in_progress = 1;
-					tim_enable();
-				} else {
-					DBG_PRINT(" %s the parsed amount of samples is invalid \n", __func__);
-					err = E_GER;
-					break;
-				}
-			} else {
-				DBG_PRINT(" %s unable to parse the comand that seems to look like start \n", __func__);
-				err = E_GER;
-				break;
+			err = get_signal(buff + 1);
+			if (err) {
+				DBG_PRINT("%s signal get error ocured", __func__);
 			}
 			break;
 
 		case READ_TD:
-			if (sampling_in_progress) {
-				DBG_PRINT(" %s unable to handle reading reques sampling in progress", __func__);
-				break;
+			err = pass_aray_via_usb();
+			if (err) {
+				DBG_PRINT("%s pass aray via usb error ocured", __func__);
 			}
-			#define READ_CNT 25  // yeah looks bed ;( but unfortunatly I unable to pass more then 50 bytes at a time. so this is the best way I found to solve the problem
-			static int32_t read = 0;
-			static uint16_t *sample_p = samples;
-			
-			reading_in_progres = 1;
-
-			read += READ_CNT;
-
-			usb_write_data_packet(sample_p, samples_amnt - read < 0 ? (READ_CNT + samples_amnt - read) * sizeof(uint16_t) : (READ_CNT) * sizeof(uint16_t)); // as long as samples has uint16_t, we have to scale sample array size to char data type
-			
-			DBG_PRINT("%s the samples amnt %d, and read %d \n", __func__, samples_amnt, read);
-
-			if (read >= samples_amnt) {
-				reading_in_progres = 0;
-				sample_p = samples;
-				read = 0;
-				DBG_PRINT("%s the reading procidure ended \n", __func__);
-			} else {
-				sample_p = read + samples;
-			}
-
-			#undef READ_CNT
 			break;
 
 		default:
