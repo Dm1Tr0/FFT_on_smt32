@@ -19,7 +19,7 @@ class Stm_ser():
         query = ''
         if cmd_list[0] == 'start' and len(cmd_list) > 1:
             self.samples_cnt = int(cmd_list[1]) 
-            self.rounds = self.samples_cnt // self.samples_per_round + int((self.samples_cnt - self.samples_cnt // self.samples_per_round) != 0) 
+            self.rounds = self.samples_cnt // self.samples_per_round + bool(self.samples_cnt % self.samples_per_round) 
             print(self.rounds)
         
         for i in range(0,len(cmd_list)):
@@ -44,15 +44,15 @@ class Stm_ser():
         output = []
         for i in range(0,self.rounds):
             self.write('td_read')
-            time.sleep(1)
+            time.sleep(2)
             bin_output += self.serial.read_all()
             print(f"read from device cnt: {len(bin_output)}")
         
-        for b in bin_output:
-            print(format(b,"b"))
+        # for b in bin_output:
+        #     print(format(b,"b"))
 
         for i in range(0,len(bin_output), 2):
-            print(f"the first argumen:, the second argument: {bin_output[i + 1]}, the second argument to the pow: {bin_output[i + 1] * 2**8}")
+            # print(f"the first argumen:, the second argument: {bin_output[i + 1]}, the second argument to the pow: {bin_output[i + 1] * 2**8}")
             output.append(int(bin_output[i] + bin_output[i + 1] * 2**8))
 
         return output

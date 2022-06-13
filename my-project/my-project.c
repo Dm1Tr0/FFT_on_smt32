@@ -35,13 +35,15 @@ static uint32_t request_handler(char *buff, int32_t len)
 	char *ptr = NULL;
 	uint32_t err = E_OK;
 	static int enter_cnt; 
-	leds_write(enter_cnt++);
+
+	DBG_PRINT("entered the %s wit request '%s' \n", __func__, buff);
 
 	if(len > 0 && buff != NULL) {
 		switch (buff[0]) {
 		case START:
+			DBG_PRINT("%s entered the START comand handler\n", __func__);
 			if (reading_in_progres) {
-				DBG_PRINT("%s unable to start sampling the reading in progress", __func__ );
+				DBG_PRINT("%s unable to start sampling the reading in progress \n", __func__ );
 				break;
 			}
 			samples_amnt = 0; // cleaning up the samples ammount
@@ -82,10 +84,13 @@ static uint32_t request_handler(char *buff, int32_t len)
 
 			usb_write_data_packet(sample_p, samples_amnt - read < 0 ? (READ_CNT + samples_amnt - read) * sizeof(uint16_t) : (READ_CNT) * sizeof(uint16_t)); // as long as samples has uint16_t, we have to scale sample array size to char data type
 			
+			DBG_PRINT("%s the samples amnt %d, and read %d \n", __func__, samples_amnt, read);
+
 			if (read >= samples_amnt) {
 				reading_in_progres = 0;
 				sample_p = samples;
 				read = 0;
+				DBG_PRINT("%s the reading procidure ended \n", __func__);
 			} else {
 				sample_p = read + samples;
 			}
@@ -140,7 +145,7 @@ static void adc_cb_func(struct adc_cb_data *cb_data)
 	}
 
 	samples[cnt_samples] = adc_acquire();
-	DBG_PRINT("sample cnt = %"PRId32" sapmle restaut: %"PRIu32" \n", cnt_samples, samples[cnt_samples]);
+	DBG_PRINT("sample cnt = %"PRId32" sapmle restaut: %"PRIu32", true adc %"PRIu32"\n", cnt_samples, samples[cnt_samples], adc_acquire());
 	cnt_samples++;
 	tim_enable(); // in order to avoid overrun
 }
@@ -150,7 +155,6 @@ int main(void)
 	struct adc_cb_str adc_cb;
 	struct usb_cb_str usb_cb;
 	initialise_monitor_handles();
-	clock_setup();
 	leds_init();
 	leds_write(1);
 
@@ -165,7 +169,7 @@ int main(void)
   	adc_cb.adc_cb = adc_cb_func;
   	adc_cb.data_size = 0; // no extra data
 	adc_init_extern_trig(&adc_cb);
-  	tim_setup_master_trig(1, 5000000); 
+  	tim_setup_master_trig(1, 500); 
 	
     leds_write(2);
 
