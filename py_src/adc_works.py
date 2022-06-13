@@ -44,7 +44,6 @@ class Stm_ser():
         output = []
         for i in range(0,self.rounds):
             self.write('td_read')
-            time.sleep(2)
             bin_output += self.serial.read_all()
             print(f"read from device cnt: {len(bin_output)}")
         
@@ -61,8 +60,8 @@ class Stm_ser():
 
 
 stm = Stm_ser('/dev/ttyACM1')
-stm.write("start 50")
-time.sleep(11)
+stm.write("start 1000")
+time.sleep(2)
 # stm.write("td_read")
 # time.sleep(10)
 # stm.write("td_read")

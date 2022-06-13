@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdint.h>
 
+// discretisation clk = 1Mhz
+
 #define USB_DATA_BUF_LEN 100
 #define MIN_AMNT_OF_SAMPL 128
 #define MAX_AMNT_OF_SAMPL 1000
@@ -25,10 +27,14 @@ enum comands {    //        EXAMPLES
 	START    = '1',  //  START  n  (where n amount of samples to read) no value instead of n means untill stop 
 	READ_TD  = '2',  //  READ_TD   read the aray of samples
 	READ_DFT = '3',  //  READ_     read the resault of digital furie transformation aplied to the input signal
-	READ_FFT = '4',   //  READ_FFT  read the resault of fest furie transformation aplied to the input signal
+	READ_FFT = '4',  //  READ_FFT  read the resault of fest furie transformation aplied to the input signal
 	R_TEST   = '5'
 
 };
+
+//static pass_aray_via_usb()
+
+//static get_signal()
 
 static uint32_t request_handler(char *buff, int32_t len)
 {
@@ -143,7 +149,7 @@ static void adc_cb_func(struct adc_cb_data *cb_data)
 		cnt_samples = 0;
 		return;
 	}
-
+	
 	samples[cnt_samples] = adc_acquire();
 	DBG_PRINT("sample cnt = %"PRId32" sapmle restaut: %"PRIu32", true adc %"PRIu32"\n", cnt_samples, samples[cnt_samples], adc_acquire());
 	cnt_samples++;
@@ -155,6 +161,7 @@ int main(void)
 	struct adc_cb_str adc_cb;
 	struct usb_cb_str usb_cb;
 	initialise_monitor_handles();
+	clock_setup();
 	leds_init();
 	leds_write(1);
 
@@ -169,7 +176,7 @@ int main(void)
   	adc_cb.adc_cb = adc_cb_func;
   	adc_cb.data_size = 0; // no extra data
 	adc_init_extern_trig(&adc_cb);
-  	tim_setup_master_trig(1, 500); 
+  	tim_setup_master_trig(1, 50000000); 
 	
     leds_write(2);
 

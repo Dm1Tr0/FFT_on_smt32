@@ -30,10 +30,6 @@ void adc_init_cb(struct adc_cb_str *cb_str)
 
 void adc_init_extern_trig(struct adc_cb_str * cb_str)
 {
-	// // * Sensor is connected to ADC12IN9 -- ADC1 and ADC2 (pin is common for them), input 9
-	// // * By opening STM32F407_Datasheet_(DS8626).pdf at page 50, we can see ADC12_IN9 is
-	// //   an additional function of PB1 pin
-	// * So set PB1 to analog
 
 	adc_init_cb(cb_str);
 	rcc_periph_clock_enable(RCC_GPIOB);
@@ -44,16 +40,15 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str)
 
 	rcc_periph_clock_enable(RCC_ADC1);
 
-	/* Make sure the ADC doesn't run during config. */
+	rcc_set_ppre2(RCC_CFGR_PPRE_DIV_2);
+	adc_set_clk_prescale(ADC_CCR_ADCPRE_BY2);
+
 	adc_power_off(ADC1);
 
-	/* We configure everything for one single timer triggered injected conversion. */
 	adc_enable_scan_mode(ADC1);
 	adc_set_single_conversion_mode(ADC1);
 
 	adc_disable_automatic_injected_group_conversion(ADC1);
-
-	/* We can only use discontinuous mode on either the regular OR injected channels, not both */
  	
 	adc_enable_external_trigger_regular(ADC1, ADC_CR2_EXTSEL_TIM2_TRGO,  ADC_CR2_EXTEN_RISING_EDGE);
 
@@ -64,8 +59,8 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str)
 	}
 	adc_set_regular_sequence(ADC1, AMT_OF_CHAN_USED, channels);
 
-	/* We want to start the injected conversion with the TIM2 TRGO */
 	adc_set_right_aligned(ADC1);
+	adc_set_resolution(ADC1, ADC_CR1_RES_8BIT);
 
 	DBG_PRINT("1 the adc_cr1 EOC = %x \n",ADC_CR1(ADC1) & ADC_CR1_EOCIE);
 	adc_eoc_after_each(ADC1);
@@ -84,10 +79,6 @@ void adc_init_extern_trig(struct adc_cb_str * cb_str)
 
 void adc_init(void)
 {
-	// * Sensor is connected to ADC12IN9 -- ADC1 and ADC2 (pin is common for them), input 9
-	// * By opening STM32F407_Datasheet_(DS8626).pdf at page 50, we can see ADC12_IN9 is
-	//   an additional function of PB1 pin
-	// * So set PB1 to analog
 	rcc_periph_clock_enable(RCC_GPIOB);
 	// set ospeed to lowest to minimize noise and power use as application note recommends
 	gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, 1 << 1);

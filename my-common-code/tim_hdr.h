@@ -18,7 +18,7 @@ struct tim_cb_str {
 
 void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str);
 
-void tim_setup_master_trig(uint16_t period, uint16_t frequancy);
+void tim_setup_master_trig(uint32_t period, uint32_t frequancy);
 
 int  tim_set_oc_val(uint16_t freq);
 

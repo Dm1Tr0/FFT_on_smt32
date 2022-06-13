@@ -123,7 +123,7 @@ void tim_disable(void) {
 	timer_disable_counter(TIM2);
 }
 
-void tim_setup_master_trig(uint16_t period, uint16_t frequancy)
+void tim_setup_master_trig(uint32_t period, uint32_t frequancy)
 {
 	/* Set up the timer TIM2 for injected sampling */
 	uint32_t timer;
