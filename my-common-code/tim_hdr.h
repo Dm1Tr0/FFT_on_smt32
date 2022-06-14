@@ -1,3 +1,5 @@
+#include <stdint.h>
+#include <general_defs.h>
 
 #ifndef TIM_HDR
 #define TIM_HDR
@@ -14,12 +16,16 @@ struct tim_cb_str {
 	uint32_t data_size;
 };
 
-void tim_clock_setup(void);
+void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str);
 
-void tim_setup(uint16_t t_val);
+void tim_setup_master_trig(uint32_t period, uint32_t frequancy);
 
-int tim_init_handler(struct tim_cb_str *data);
+int  tim_set_oc_val(uint16_t freq);
 
-int tim_set_oc_val(uint16_t freq);
+void clock_setup(void);
+
+void tim_disable(void);
+
+void tim_enable(void);
 
 #endif

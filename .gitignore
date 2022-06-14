@@ -6,9 +6,15 @@ libopencm3
 *.so
 *.o
 workspace.code-workspace
+<<<<<<< HEAD
 :tt
 debug/
 release/
 
 
+=======
+debug/
+release/
+:tt
+>>>>>>> dev
 

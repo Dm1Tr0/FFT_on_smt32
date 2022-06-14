@@ -22,25 +22,53 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/timer.h>
-#include <general_defs.h>
+#include <stdlib.h>
 #include <tim_hdr.h>
-
-#ifndef DBG_LVL
-
-#define DBG_PRINT(val)
-#define DBG_LED(val)
-
-#endif /* DBG_LVL */
+#include <led_hdr.h>
 
 static struct tim_cb_str *tim_cb_str_p;
 
-void tim_clock_setup(void)
+static int tim_init_handler(struct tim_cb_str *cb_str) 
 {
-	rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
+	if(cb_str->data_size <= MAX_CB_DATA_LEN && cb_str->tim_cb != NULL) {
+		tim_cb_str_p = cb_str;
+	} else {
+		DBG_PRINT("the initializiation failed, too long data \n");
+		DBG_LED(0x5);
+		return E_GER;
+	}
+
+	return E_OK;
 }
 
-void tim_setup(uint16_t t_val)
+ struct ___rcc_clock_scale___ {
+         uint8_t pllm;
+         uint16_t plln;
+         uint8_t pllp;
+         uint8_t pllq;
+         uint8_t pllr;
+         uint8_t pll_source;
+         uint32_t flash_config;
+         uint8_t hpre;
+         uint8_t ppre1;
+         uint8_t ppre2;
+         enum pwr_vos_scale voltage_scale;
+         uint32_t ahb_frequency;
+         uint32_t apb1_frequency;
+         uint32_t apb2_frequency;
+ };
+  
+
+void clock_setup(void)
 {
+	rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
+	DBG_PRINT("we have the folowing setup: hpre %x ppre1 %x ppre2 %x \n",rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ].hpre, rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ].ppre1, rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ].ppre2);
+	DBG_PRINT("having the folowing frequancys ahb %"PRIu32" apb1%"PRIu32" apb2%"PRIu32" \n",rcc_ahb_frequency, rcc_apb1_frequency, rcc_apb2_frequency);
+}
+
+void tim_setup(uint16_t period, uint16_t frequancy,struct tim_cb_str *cb_str)
+{
+	tim_init_handler(cb_str);
 	/* Enable TIM2 clock. */
 	rcc_periph_clock_enable(RCC_TIM2);
 
@@ -67,38 +95,59 @@ void tim_setup(uint16_t t_val)
 	 * In our case, TIM2 on APB1 is running at double frequency, so this
 	 * sets the prescaler to have the timer run at 5kHz
 	 */
-	timer_set_prescaler(TIM2, ((rcc_apb1_frequency * 2) / 5000));
-
+	timer_set_prescaler(TIM2, ((rcc_apb1_frequency * 2) / frequancy));
+	
+	DBG_PRINT("the freq Is %u \n", rcc_apb1_frequency);
 	/* Disable preload. */
 	timer_disable_preload(TIM2);
 	timer_continuous_mode(TIM2);
 
 	/* count full range, as we'll update compare value continuously */
-	timer_set_period(TIM2, 65535);
+	timer_set_period(TIM2, period);
 
 	/* Set the initual output compare value for OC1. */
-	timer_set_oc_value(TIM2, TIM_OC1, t_val);
+	//timer_set_oc_value(TIM2, TIM_OC1, t_val);
 
 	/* Counter enable. */
-	timer_enable_counter(TIM2);
+	//timer_enable_counter(TIM2);
 
 	/* Enable Channel 1 compare interrupt to recalculate compare values */
 	timer_enable_irq(TIM2, TIM_DIER_CC1IE);
 }
 
-int tim_init_handler(struct tim_cb_str *data) 
-{
-	if(data->data_size <= MAX_CB_DATA_LEN && data->tim_cb != NULL) {
-		tim_cb_str_p = data;
-	} else {
-		DBG_PRINT("the initializiation failed, too long data \n");
-		DBG_LED(1);
-		return E_GER;
-	}
-
-	return E_OK;
+void tim_enable(void) {
+	timer_enable_counter(TIM2);
 }
 
+void tim_disable(void) {
+	timer_disable_counter(TIM2);
+}
+
+void tim_setup_master_trig(uint32_t period, uint32_t frequancy)
+{
+	/* Set up the timer TIM2 for injected sampling */
+	uint32_t timer;
+
+	timer   = TIM2;
+
+	rcc_periph_clock_enable(RCC_TIM2);
+
+	/* Time Base configuration */
+    rcc_periph_reset_pulse(RST_TIM2);
+	
+    timer_set_mode(timer, TIM_CR1_CKD_CK_INT,
+	    TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+    timer_set_period(timer,period);
+	timer_set_prescaler(timer, ((rcc_apb1_frequency * 2) / frequancy));
+
+	timer_disable_preload(timer);
+	timer_continuous_mode(timer);
+
+    /* Generate TRGO on every update. */
+    timer_set_master_mode(timer, TIM_CR2_MMS_UPDATE);
+}
+
+// thus you can regulate faze
 int tim_set_oc_val(uint16_t freq) 
 {
 	/*
@@ -127,27 +176,8 @@ void tim2_isr(void)
 			tim_cb_str_p->tim_cb(&tim_cb_str_p->cb_data);
 		} else {
 			DBG_PRINT("the callback struct is not initialized; the timer is stoped\n");
-			DBG_LED(2);
+			DBG_LED(6);
 			timer_disable_counter(TIM2);
 		}
 	}
 }
-
-
-
-/*
- * exampe of initialization  
- *
- *	int time_init(void)
- *  {
- *		tim_clock_setup();
- *		gpio_setup();
- *		tim_setup(1234); //random val
- *
- *		while (1) {
- *			;
- *		}
- *
- *		return 0;
- *	}
-*/

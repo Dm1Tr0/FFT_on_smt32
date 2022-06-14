@@ -31,8 +31,60 @@
 # C++ hasn't been actually tested with this..... sorry bout that. ;)
 # Second expansion/secondary not set, add this if you need them.
 
-BUILD_DIR ?= bin
+PROJECT = high freq_timer
+WRITE_ADDR = 0x8000000
+
+PROFILE ?= debug
+SRC_DIR ?= ./my-project
+PROFILE_DIR ?= $(SRC_DIR)/$(PROFILE)
+BUILD_DIR = $(SRC_DIR)/$(PROFILE)/bin
+
+SHARED_DIR = ./my-common-code
+CFILES = timer.c led_lib.c my-project.c cdcacm.c adc_lib.c
+CFILES += 
+AFILES +=
+
+LIBS += -lm
+LIBS += -lopencm3
+
+LIB_OBJ = libopencm3.a
+LIB_OBJ +=
+
+LIB_LOCATION = $(PROFILE_DIR)/lib_bin
+
+LIBOPENCM3_TARGET ?= stm32/f4
+
+ifeq ($(PROFILE),debug)
+
+ENABLE_SEMIHOSTING ?= 1
+
+ifeq ($(ENABLE_SEMIHOSTING),1)
+S_LDFLAGS   += --specs=rdimon.specs -lrdimon
+S_DEFS		+= -DENABLE_SEMIHOSTING=1 
+else 
+S_LDFLAGS += -lnosys
+endif
+endif
+
+OOCD ?= openocd -f ./discovery_conf.cfg
+
+# TODO - you will need to edit these two lines!
+DEVICE=stm32f407vgt6
+OOCD_FILE = discovery_conf.cfg
+
+# You shouldn't have to edit anything below here.
+VPATH += $(SHARED_DIR)
+INCLUDES += $(patsubst %,-I%, . $(SHARED_DIR))
+OPENCM3_DIR= ./libopencm3
+
+include $(OPENCM3_DIR)/mk/genlink-config.mk
+
+ifeq ($(PROFILE),debug)
+OPT ?= -Og 
+else 
 OPT ?= -Os
+endif 
+
 CSTD ?= -std=c99
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
@@ -48,6 +100,7 @@ PREFIX	?= arm-none-eabi-
 CC	= $(PREFIX)gcc
 CXX	= $(PREFIX)g++
 LD	= $(PREFIX)gcc
+GDB = $(PREFIX)gdb
 OBJCOPY	= $(PREFIX)objcopy
 OBJDUMP	= $(PREFIX)objdump
 OOCD	?= openocd
@@ -62,6 +115,10 @@ OBJS += $(CXXFILES:%.cxx=$(BUILD_DIR)/%.o)
 OBJS += $(AFILES:%.S=$(BUILD_DIR)/%.o)
 GENERATED_BINS = $(PROJECT).elf $(PROJECT).bin $(PROJECT).map $(PROJECT).list $(PROJECT).lss
 
+FPU ?= hard
+FPU_FLAGS := -mfpu=fpv4-sp-d16 -mfloat-abi=$(FPU)
+ARCH_FLAGS := -mcpu=cortex-m4 -mthumb $(FPU_FLAGS)
+
 TGT_CPPFLAGS += -MD
 TGT_CPPFLAGS += -Wall -Wundef $(INCLUDES)
 TGT_CPPFLAGS += $(INCLUDES) $(OPENCM3_DEFS)
@@ -72,6 +129,7 @@ TGT_CFLAGS += -fno-common
 TGT_CFLAGS += -ffunction-sections -fdata-sections
 TGT_CFLAGS += -Wextra -Wshadow -Wno-unused-variable -Wimplicit-function-declaration
 TGT_CFLAGS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes
+TGT_CFLAGS += $(S_DEFS) 
 
 TGT_CXXFLAGS += $(OPT) $(CXXSTD) -ggdb3
 TGT_CXXFLAGS += $(ARCH_FLAGS)
@@ -81,7 +139,7 @@ TGT_CXXFLAGS += -Wextra -Wshadow -Wredundant-decls  -Weffc++
 
 TGT_ASFLAGS += $(OPT) $(ARCH_FLAGS) -ggdb3
 
-TGT_LDFLAGS += -T$(LDSCRIPT) -L$(OPENCM3_DIR)/lib -nostartfiles
+TGT_LDFLAGS += -T$(LDSCRIPT) -L$(LIB_LOCATION) -nostartfiles
 TGT_LDFLAGS += $(ARCH_FLAGS)
 TGT_LDFLAGS += -specs=nano.specs
 TGT_LDFLAGS += -Wl,--gc-sections
@@ -94,11 +152,12 @@ endif
 
 # Linker script generator fills this in for us.
 ifeq (,$(DEVICE))
-LDLIBS += -l$(OPENCM3_LIB)
 endif
 # nosys is only in newer gcc-arm-embedded...
 #LDLIBS += -specs=nosys.specs
-LDLIBS += -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+LDLIBS += -Wl,--start-group -lc -lgcc $(S_LDFLAGS) -Wl,--end-group
+LDLIBS += $(S_LDLIBS)
+LDLIBS += $(LIBS)
 
 # Burn in legacy hell fortran modula pascal yacc idontevenwat
 .SUFFIXES:
@@ -111,8 +170,14 @@ LDLIBS += -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
 %: s.%
 %: SCCS/s.%
 
-all: $(PROJECT).elf $(PROJECT).bin
-flash: $(PROJECT).flash
+$(BUILD_DIR):
+	mkdir -p $@
+
+$(LIB_LOCATION):
+	mkdir -p $@
+
+all: $(PROFILE_DIR)/$(PROJECT).elf $(PROFILE_DIR)/$(PROJECT).bin
+#flash: $(PROJECT).flash
 
 # error if not using linker script generator
 ifeq (,$(DEVICE))
@@ -125,23 +190,31 @@ else
 GENERATED_BINS += $(LDSCRIPT)
 endif
 
+$(LIB_LOCATION)/libopencm3.a: | $(LIB_LOCATION) $(OPENCM3_DIR)/Makefile
+	@echo Building libopencm3 for $(PROFILE) profile...
+	cd $(OPENCM3_DIR) && $(MAKE) $(MAKEFLAGS) TARGETS="$(LIBOPENCM3_TARGET)" FP_FLAGS="$(FPU_FLAGS)" CFLAGS="$(TGT_CFLAGS)" V=1 clean lib
+	cp $(OPENCM3_DIR)/lib/libopencm3_$(subst /,,$(LIBOPENCM3_TARGET)).a $@
+	@echo libopencm3 for $(PROFILE) profile is built
+
+include $(OPENCM3_DIR)/mk/genlink-rules.mk
+
 # Need a special rule to have a bin dir
-$(BUILD_DIR)/%.o: %.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(LIB_LOCATION)/libopencm3.a
 	@printf "  CC\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_CFLAGS) $(CFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(BUILD_DIR)/%.o: %.cxx
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cxx | $(LIB_LOCATION)/libopencm3.a
 	@printf "  CXX\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) $(TGT_CXXFLAGS) $(CXXFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(BUILD_DIR)/%.o: %.S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(LIB_LOCATION)/libopencm3.a
 	@printf "  AS\t$<\n"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(TGT_ASFLAGS) $(ASFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS)
+$(PROFILE_DIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS) | $(LIB_LOCATION)/libopencm3.a 
 	@printf "  LD\t$@\n"
 	$(Q)$(LD) $(TGT_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $@
 
@@ -155,24 +228,35 @@ $(PROJECT).elf: $(OBJS) $(LDSCRIPT) $(LIBDEPS)
 %.list: %.elf
 	$(OBJDUMP) -S $< > $@
 
-%.flash: %.elf
-	@printf "  FLASH\t$<\n"
-ifeq (,$(OOCD_FILE))
-	$(Q)(echo "halt; program $(realpath $(*).elf) verify reset" | nc -4 localhost 4444 2>/dev/null) || \
-		$(OOCD) -f interface/$(OOCD_INTERFACE).cfg \
-		-f target/$(OOCD_TARGET).cfg \
-		-c "program $(realpath $(*).elf) verify reset exit" \
-		$(NULL)
-else
-	$(Q)(echo "halt; program $(realpath $(*).elf) verify reset" | nc -4 localhost 4444 2>/dev/null) || \
-		$(OOCD) -f $(OOCD_FILE) \
-		-c "program $(realpath $(*).elf) verify reset exit" \
-		$(NULL)
-endif
+flash: $(PROFILE_DIR)/$(PROJECT).elf
+	$(OOCD) -c "program $< verify reset exit"
 
-clean:
-	rm -rf $(BUILD_DIR) $(GENERATED_BINS)
+st_util_server:
+	st-util --semihosting &
 
-.PHONY: all clean flash
+# to make it work just tipe load and continue
+# after continue you may watch the resaults of semihosting prints in :tt
+# for some reason can't make the semihosting prints to apeare in the GDB cmd line :(
+gdb: $(PROFILE_DIR)/$(PROJECT).elf flash st_util_server
+	$(GDB) -ex 'target extended-remote localhost:4242' $<  
+
+st_flash: all
+	sudo st-flash --reset write $(PROFILE_DIR)/$(PROJECT).bin $(WRITE_ADDR)
+
+flash_erase:
+	sudo st-flash erase 
+
+clean_bins: 
+	rm -rf $(GENERATED_BINS)
+
+clean_obj:
+	rm -rf $(BUILD_DIR)/*.o
+
+clean: clean_obj clean_bins
+
+mr_proper: clean
+	rm -rf  $(LIB_LOCATION)
+
+.PHONY: all clean flash st_flash flash_erase st_util_server
 -include $(OBJS:.o=.d)
 
