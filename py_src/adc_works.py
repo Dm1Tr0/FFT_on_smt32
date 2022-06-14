@@ -3,16 +3,23 @@ import time
 import matplotlib.pyplot as plt
 
 class Stm_ser():
-    def __init__(self, path_to_usb_dev, debug, dw_per_round):
+    def __init__(self, path_to_usb_dev, dw_per_round):
+        debug_status = {1: "<debug mode>", 0: "<release mode>"}
         self.serial = s.Serial(path_to_usb_dev)
         print(self.serial.name)
-        self.commands = {'start': '1', 'td_read': '2', 'dft_read': '3', 'fft_read': "4", 'set_per_round': '5'}
+        self.commands = {'start': '1', 'td_read': '2', 'dft_read': '3', 'fft_read': "4", 'set_per_round': '5', 'get_debug_status': '6'}
         self.d_words_per_round  = dw_per_round
         self.samples_cnt = 0
         self.rounds = 0
-        self.debug = debug
         cmd = 'set_per_round ' + str(self.d_words_per_round)
         self.write("set_per_round 10")
+        time.sleep(1)
+        self.write("get_debug_status")
+        time.sleep(1)
+        status = self.serial.read_all()
+        print(len(status))
+        self.debug = int(status)
+        print(debug_status[self.debug])
 
     def write(self, cmd_string):
         cmd_list = cmd_string.split()
@@ -64,8 +71,8 @@ class Stm_ser():
             
 
 
-stm = Stm_ser('/dev/ttyACM1', 1, 10)
-stm.write("start 20")
+stm = Stm_ser('/dev/ttyACM1', 10)
+stm.write("start 1000")
 if stm.debug : 
     time.sleep(10) 
 else: 

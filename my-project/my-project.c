@@ -34,16 +34,30 @@ enum comands {               //        definition
 	GET_DEBUG_STATUS = '6'   //  GET_DEBUG_STATUS	send the debug status to via usbW
 };
 
+#define	RELEASE_STAT ((uint16_t *)"0")
+#define DEBUG_STAT ((uint16_t *)"1")
+
 static int32_t set_d_words_per_round(char * buff)
 {
 	uint8_t per_round = atoi(buff);
 
 	if (per_round <= 0 || per_round > DEFAULT_D_WORDS_PER_ROUND) {
-		DBG_PRINT(" %s the prer_round value is invalid %d \n", per_round);
+		DBG_PRINT(" %s the per_round value is invalid %d \n", __func__, per_round);
 		return E_INV;
 	}
 
+	memset(buff, 0, strlen(buff));
+
 	return per_round;
+}
+
+static void report_dbg_status(void) 
+{
+#ifndef DEBUG
+	usb_write_data_packet(RELEASE_STAT, 1);
+#else
+    usb_write_data_packet(DEBUG_STAT, 1);
+#endif
 }
 
 static int32_t pass_aray_via_usb(uint16_t *buff, uint32_t init_len) // lenth is not ment to be changed untill the entire data transfer ocured
@@ -160,6 +174,10 @@ static uint32_t request_handler(char *buff, int32_t len)
 				DBG_PRINT("%s double words per round is set to %d", __func__, dw_per_rnd);
 				d_words_per_round = dw_per_rnd;
 			}
+			break;
+
+		case GET_DEBUG_STATUS:	
+			report_dbg_status();
 			break;
 
 		default:
