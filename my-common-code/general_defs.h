@@ -8,6 +8,7 @@
 #include <inttypes.h>
 extern void initialise_monitor_handles(void);
 
+#define DEBUG 1 
 #define DBG_PRINT( ... ) ({ \
         printf(__VA_ARGS__);\
 })
@@ -33,7 +34,8 @@ static inline void dbg_array_print(uint16_t *ptr, uint32_t lenth)
 
 enum err_vals {
     E_OK,
-    E_GER   //general error
+    E_GER, //general error
+	E_INV = -1
 };
 
 #endif

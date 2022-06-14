@@ -14,57 +14,82 @@
 
 // discretisation clk = 1Mhz
 
-#define USB_DATA_BUF_LEN 100
-#define MIN_AMNT_OF_SAMPL 128
-#define MAX_AMNT_OF_SAMPL 1000
+#define USB_DATA_BUF_LEN  			100
+#define MAX_AMNT_OF_SAMPL		 	1000
+#define DEFAULT_D_WORDS_PER_ROUND	25
 
 static char data_buffer[USB_DATA_BUF_LEN];
 static uint16_t samples[MAX_AMNT_OF_SAMPL];
 static int32_t samples_amnt;
 uint8_t sampling_in_progress, stop_sampling, data_reading_in_progress;
 
-enum comands {    //        EXAMPLES
-	START    = '1',  //  START  n  (where n amount of samples to read) no value instead of n means untill stop 
-	READ_TD  = '2',  //  READ_TD   read the aray of samples
-	READ_DFT = '3',  //  READ_     read the resault of digital furie transformation aplied to the input signal
-	READ_FFT = '4',  //  READ_FFT  read the resault of fest furie transformation aplied to the input signal
-	R_TEST   = '5'
+uint32_t d_words_per_round = DEFAULT_D_WORDS_PER_ROUND;
+
+enum comands {               //        definition
+	START            = '1',  //  START  n  			(where n amount of samples to read) 
+	READ_TD          = '2',  //  READ_TD   			read the aray of samples
+	READ_DFT         = '3',  //  READ_     			read the resault of digital furie transformation aplied to the input signal
+	READ_FFT         = '4',  //  READ_FFT  			read the resault of fest furie transformation aplied to the input signal
+	SET_PER_ROUND    = '5',  //  SET_PER_ROUND	    set the ammount of samples(uint16_t) values per one usb data transfere to transfere
+	GET_DEBUG_STATUS = '6'   //  GET_DEBUG_STATUS	send the debug status to via usbW
 };
 
-static int32_t pass_aray_via_usb(void)
+static int32_t set_d_words_per_round(char * buff)
+{
+	uint8_t per_round = atoi(buff);
+
+	if (per_round <= 0 || per_round > DEFAULT_D_WORDS_PER_ROUND) {
+		DBG_PRINT(" %s the prer_round value is invalid %d \n", per_round);
+		return E_INV;
+	}
+
+	return per_round;
+}
+
+static int32_t pass_aray_via_usb(uint16_t *buff, uint32_t init_len) // lenth is not ment to be changed untill the entire data transfer ocured
 {
 	int32_t err = E_OK;
+	static uint32_t len = 0;
+	static uint32_t read = 0;
+	static uint16_t *usb_buf = NULL;
 
 	if (sampling_in_progress) {
-		DBG_PRINT(" %s unable to handle reading reques sampling in progress", __func__);
+		DBG_PRINT(" %s unable to handle reading reques sampling in progress \n", __func__);
 		err = E_GER;
 		goto _error;
-		
 	}
-	#define READ_CNT 25  // yeah looks bed ;( but unfortunatly I unable to pass more then 50 bytes at a time. so this is the best way I found to solve the problem
-	static int32_t read = 0;
-	static uint16_t *sample_p = samples;
+
+	if (!d_words_per_round) {
+		DBG_PRINT(" %s the samples per round is not set \n", __func__);
+		err = E_GER;
+		goto _error;
+	}
+	
+	if (!len || !usb_buf) { // to be sure that the lenth won't be changed until the data trasfere occured
+		len = init_len;
+		usb_buf = buff;
+	}
 	
 	data_reading_in_progress = 1;
 
-	read += READ_CNT;
+	read += d_words_per_round;
 
-	usb_write_data_packet(sample_p, samples_amnt - read < 0 ? (READ_CNT + samples_amnt - read) * sizeof(uint16_t) : (READ_CNT) * sizeof(uint16_t)); // as long as samples has uint16_t, we have to scale sample array size to char data type
+	usb_write_data_packet(usb_buf, read > len ? (d_words_per_round + len - read) * sizeof(uint16_t) : (d_words_per_round) * sizeof(uint16_t)); // as long as samples has uint16_t, we have to scale sample array size to char data type
 	
-	DBG_PRINT("%s the samples amnt %d, and read %d \n", __func__, samples_amnt, read);
+	DBG_PRINT("%s the samples amnt %d, and read %d \n", __func__, len, read);
 
-	if (read >= samples_amnt) {
+	if (read >= len) {
 		data_reading_in_progress = 0;
-		sample_p = samples;
+		usb_buf = NULL;
 		read = 0;
+		len = 0;
 		DBG_PRINT("%s the reading procidure ended \n", __func__);
 	} else {
-		sample_p = read + samples;
+		usb_buf += d_words_per_round;
 	}
 
 _error:
 
-	#undef READ_CNT
 	return err;
 }
 
@@ -109,6 +134,7 @@ _error:
 static uint32_t request_handler(char *buff, int32_t len)
 {
 	uint32_t err = E_OK;
+	int32_t dw_per_rnd = E_INV;
 
 	DBG_PRINT("entered the %s wit request '%s' \n", __func__, buff);
 
@@ -122,9 +148,17 @@ static uint32_t request_handler(char *buff, int32_t len)
 			break;
 
 		case READ_TD:
-			err = pass_aray_via_usb();
+			err = pass_aray_via_usb(samples, samples_amnt);
 			if (err) {
 				DBG_PRINT("%s pass aray via usb error ocured", __func__);
+			}
+			break;
+
+		case SET_PER_ROUND:
+			dw_per_rnd = set_d_words_per_round(buff + 1);
+			if (dw_per_rnd != E_INV ) {
+				DBG_PRINT("%s double words per round is set to %d", __func__, dw_per_rnd);
+				d_words_per_round = dw_per_rnd;
 			}
 			break;
 
@@ -175,7 +209,7 @@ static void adc_cb_func(struct adc_cb_data *cb_data)
 	}
 	
 	samples[cnt_samples] = adc_acquire();
-	DBG_PRINT("sample cnt = %"PRId32" sapmle restaut: %"PRIu32", true adc %"PRIu32"\n", cnt_samples, samples[cnt_samples], adc_acquire());
+	//DBG_PRINT("sample cnt = %"PRId32" sapmle restaut: %"PRIu32", true adc %"PRIu32"\n", cnt_samples, samples[cnt_samples], adc_acquire());
 	cnt_samples++;
 	tim_enable(); // in order to avoid overrun
 }
@@ -185,7 +219,9 @@ int main(void)
 	struct adc_cb_str adc_cb;
 	struct usb_cb_str usb_cb;
 	initialise_monitor_handles();
+#ifndef DEBUG
 	clock_setup();
+#endif
 	leds_init();
 	leds_write(1);
 
@@ -200,7 +236,12 @@ int main(void)
   	adc_cb.adc_cb = adc_cb_func;
   	adc_cb.data_size = 0; // no extra data
 	adc_init_extern_trig(&adc_cb);
-  	tim_setup_master_trig(1, 50000000); 
+
+#ifndef DEBUG
+	tim_setup_master_trig(1, 50000000); 
+#else
+  	tim_setup_master_trig(1, 500); 
+#endif
 	
     leds_write(2);
 
